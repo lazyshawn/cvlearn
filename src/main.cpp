@@ -25,6 +25,8 @@
 #include <fstream>
 #include <iomanip>
 
+#define px2mm 0.153846   // (10/65)
+
 int main (int argc, char** argv) {
  
   cv::Mat src, cny, edge, img;
@@ -86,54 +88,69 @@ int main (int argc, char** argv) {
   if(src.empty()) {
     std::cout << "Cannot load pic. " << std::endl;
   }
-  cv::imshow("Origin", src);
-  cv::waitKey(0);
+  // cv::imshow("Origin", src);
+  // cv::waitKey(0);
 
   // Processing
   // Canny只接受单通道8位图像, 边缘检测前先将图像转换为灰度图
   cv::cvtColor(src, img, cv::COLOR_BGR2GRAY);         // 灰度图
   cv::GaussianBlur(img, img, cv::Size(5,5), 0, 0);    // 高斯滤波
   // Canny参数影响轮廓轮廓识别
-  cv::Canny(img, img, 40, 110);
+  cv::Canny(img, img, 40, 100);
   cv::imshow("Canny", img);
   cv::waitKey(0);
-  // cv::imwrite("./Canny.jpg", img);
 
   // 储存直线信息
   std::vector<cv::Vec4i> tline;
-  std::vector<double> theta;    // 弧度
-	double delta_x,delta_y;
+  std::vector<double> k_line;
+  std::vector<double> h_line;
+	double delta_x, delta_y, k, h;
 
   // 霍夫变换提取直线
 	HoughLinesP(img, tline,1,CV_PI/90,14,6,16);
 
   // 获取直线信息
 	for (size_t i = 0; i < tline.size(); i++) {
+    // 输出直线信息
 		std::cout << "tline" << tline[i] << std::endl;
-    cv::line(src, cv::Point(tline[i][0],tline[i][1]), 
-        cv::Point(tline[i][2],tline[i][3]), 
-        cv::Scalar(0, 0, 255),2,8);
 
+    // 计算斜率和高度
 		delta_x = tline[i][2] - tline[i][0];
 		delta_y = tline[i][3] - tline[i][1];      
-		if(delta_y == 0) {
-			theta.push_back(1.57);
-			std::cout << "theta"<<i<<" = " << theta[i] << std::endl;
-		}
-		else {
-			theta.push_back(atan2(delta_x,delta_y));
-			std::cout << "theta"<<i<<" = " << theta[i] << std::endl;
-		}   
+    if(delta_x == 0) {
+      k_line.push_back(999);
+      h_line.push_back(0);
+      continue;
+    }
+    else{
+      k = (double)(delta_y / delta_x);
+      h = (double)((tline[i][1]+tline[i][3])/2*px2mm);
+      k_line.push_back(k);
+      h_line.push_back(h);
+    }
+
+    // 过滤得到水平直线
+    if (std::abs(k_line[i]) <= 0.05) {
+      std::cout << "k_line" << " = " << k_line[i] << std::endl;
+      std::cout << "h_line" << " = " << h_line[i] << std::endl;
+      cv::line(src, cv::Point(tline[i][0],tline[i][1]), 
+        cv::Point(tline[i][2],tline[i][3]), 
+        cv::Scalar(0, 0, 255),2,8);
+    }
+    else {
+      continue;
+    }
+
     cv::imshow("LineImage", src);
     cv::waitKey(0);
 
-    if (theta[i] > 1.5) {
+    if (std::abs(k_line[i]) <= 0.05) {
       fline << std::left
         << std::setw(12) << tline[i][0]
         << std::setw(12) << tline[i][1]
         << std::setw(12) << tline[i][2]
         << std::setw(12) << tline[i][3]
-        << std::setw(12) << (tline[i][1] + tline[i][3])/2
+        << std::setw(12) << h_line[i]
         << std::endl;
     }
 	}

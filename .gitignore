@@ -1,6 +1,6 @@
 # Shawn
-build
-data
+build/
+data/
 
 # Prerequisites
 *.d
